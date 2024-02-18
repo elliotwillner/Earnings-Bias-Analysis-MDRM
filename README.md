@@ -25,3 +25,4 @@ pip install -r requirements.txt
 ```
 
 ## Dataset
+We use the collected dataset from the replicated paper and use Praat parselmouth to extract features from audio.
