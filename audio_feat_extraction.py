@@ -14,17 +14,17 @@ import librosa
 def praatCall(obj, method, *args, **kwargs):
     return parselmouth.praat.call(obj, method, *args, **kwargs)
 
-def measurePitch(voiceID, f0min, f0max, unit):
+def measurePitch(voiceID, f0_min, f0_max, unit):
     sound = parselmouth.Sound(voiceID) #reads the sound
     #pitch = call(sound, "To Pitch", 0.0, f0min, f0max) #create a pitch object
-    pitch = sound.to_pitch(f0min = f0min, f0max = f0max) #creates a pitch object
+    pitch = sound.to_pitch(f0min = f0_min, f0_max = f0_max) #creates a pitch object
 
     #audio features
     meanF0 = praatCall(pitch, "Get mean", 0, 0, unit)
     stdevF0 = praatCall(pitch, "Get standard deviation", 0 ,0, unit)
     harmonicity = call(sound, "To Harmonicity (cc)", 0.01, 75, 0.1, 1.0)
     hnr = praatCall(harmonicity, "Get mean", 0, 0)
-    pointProcess = praatCall(sound, "To PointProcess (periodic, cc)", f0min, f0max)
+    pointProcess = praatCall(sound, "To PointProcess (periodic, cc)", f0_min, f0_max)
 
     #jitters
     jitters = ["local", "local, absolute", "rap", "ppq5", "ddp"]
