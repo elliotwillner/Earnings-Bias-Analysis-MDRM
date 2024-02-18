@@ -60,14 +60,24 @@ def getProsodicFeat(file_loc):
     SD_energy = np.std(energy)
 
     #Pitch analysis
-    pitch = sound.to_pitch(f0min=f0_min, f0max=f0_max)
-    maxPitch = pitch.get_maximum(frequency_unit=unit, method='Parabolic')
-    minPitch = pitch.get_minimum(frequency_unit=unit, method='Parabolic')
+    # pitch = sound.to_pitch(f0min=f0_min, f0max=f0_max)
+    # maxPitch = pitch.get_maximum(frequency_unit=unit, method='Parabolic')
+    # minPitch = pitch.get_minimum(frequency_unit=unit, method='Parabolic')
+    pitch = sound.to_pitch(time_step=None, pitch_floor=f0_min, pitch_ceiling=f0_max)
+
+    # Extract pitch points
+    pitch_points = pitch.selected_array['frequency']
+
+    # Obtain maximum and minimum pitch values
+    maxPitch = np.max(pitch_points)
+    minPitch = np.min(pitch_points)
 
     #Intensity analysis
     intensity = sound.to_intensity(minimum_pitch=f0_min)
-    maxIntensity = intensity.get_maximum(method='Parabolic')
-    minIntensity = intensity.get_minimum(method='Parabolic')
+    maxIntensity = intensity.get_maximum()
+    minIntensity = intensity.get_minimum()
+    # maxIntensity = intensity.get_maximum(method='Parabolic')
+    # minIntensity = intensity.get_minimum(method='Parabolic')
 
     #Voiced vs. Total frames analysis
     voiced_frames = pitch.count_voiced_frames()
