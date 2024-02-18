@@ -17,7 +17,8 @@ scikit_learn 1.4.1\
 scipy 1.12.0\
 seaborn 0.13.2\
 tensorflow 2.15.0\
-tqdm 4.66.2
+tqdm 4.66.2\
+praat-parselmouth 0.4.3
 
 ```
 pip install -r requirements.txt
