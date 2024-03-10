@@ -18,7 +18,8 @@ scipy 1.12.0\
 seaborn 0.13.2\
 tensorflow 2.15.0\
 tqdm 4.66.2\
-praat-parselmouth 0.4.3
+praat-parselmouth 0.4.3\
+pyarrow 15.0.1
 
 ```
 pip install -r requirements.txt
