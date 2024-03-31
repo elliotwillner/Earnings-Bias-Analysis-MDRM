@@ -78,8 +78,8 @@ def compareFeat(X_male, X_female, feature_names):
 audio_featDict, audio_featDictMark2, genders, df = loadData()
 X, y_labels, errors = modifyData(df, audio_featDict, audio_featDictMark2, genders=genders)
 
-X_male = X[y_labels['male']]
-X_female = X[y_labels['female']]
+X_male = X[tuple(y_labels['male'])]
+X_female = X[tuple(y_labels['female'])]
 
 #NaN Value Handling
 inds_X = np.where(np.isnan(X))
