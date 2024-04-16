@@ -5,8 +5,7 @@ import parselmouth
 import os
 from tqdm import tqdm
 from parselmouth.praat import call
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
+import sklearn
 import pickle
 import librosa
 
@@ -90,13 +89,20 @@ def getProsodicFeat(file_loc):
 
 
 def updateAudioFeat(dataset_path, feature_dict_path, feature_extraction_function, error_list=None):
+    folders = os.listdir(dataset_path)
 
-    files=os.listdir('./OGdataset')
     if error_list is not None:
-        files = error_list
+        folders = error_list
 
-    for file in tqdm(files):
-        audio_folder = os.path.join(dataset_path, file, 'Audio')
+    for folder in tqdm(folders):
+        folder_path = os.path.join(dataset_path, folder)
+
+        if not os.path.isdir(folder_path):
+            continue
+
+        audio_folder = os.path.join(folder_path, 'Audio')
+        if not os.path.isdir(audio_folder):
+            continue
 
         try:
             with open(feature_dict_path, 'rb') as f:
@@ -104,28 +110,32 @@ def updateAudioFeat(dataset_path, feature_dict_path, feature_extraction_function
         except FileNotFoundError:
             audio_feat_dict = {}
 
-        if file in audio_feat_dict and error_list is None:
+        if folder in audio_feat_dict and error_list is None:
             continue
 
-        audio_feat_dict[file] = {}
+        audio_feat_dict[folder] = {}
+
         for aud_file in os.listdir(audio_folder):
             audio_path = os.path.join(audio_folder, aud_file)
-            aud_file_key = aud_file[:-4]  #Remove file extension
 
-            #Check if audio feature already exists
-            if aud_file_key in audio_feat_dict[file] and len(audio_feat_dict[file][aud_file_key]) > 0:
+            if not os.path.isfile(audio_path):
                 continue
 
-            print(aud_file_key)
+            aud_file_key = aud_file[:-4]  # Remove file extension
 
-            #Extract audio features
+            # Check if audio feature already exists
+            if aud_file_key in audio_feat_dict[folder] and len(audio_feat_dict[folder][aud_file_key]) > 0:
+                continue
+
+            #print(aud_file_key)
+
+            # Extract audio features
             audio_feat = feature_extraction_function(audio_path)
-            audio_feat_dict[file][aud_file_key] = audio_feat
+            audio_feat_dict[folder][aud_file_key] = audio_feat
 
             # Save the updated dictionary after each file to minimize data loss
             with open(feature_dict_path, 'wb') as f:
                 pickle.dump(audio_feat_dict, f)
-
 
         print("Earning Call Done!!!")
 
@@ -134,6 +144,20 @@ updateAudioFeat('./OGdataset', './data/audio_featDict.pkl', getProsodicFeat)
 
 #New feature collection
 updateAudioFeat('./OGdataset', './data/audio_featDictMark2.pkl', getProsodicFeat)
+
+# Read the CSV file into a pandas DataFrame
+df = pd.read_csv('./data/genders.csv')
+
+# Create a dictionary with speaker as keys and gender as values
+genders_dict = {}
+for _, row in df.iterrows():
+    folder_name = row['folder_name']
+    gender = row['gender']
+    genders_dict[folder_name] = gender
+
+# Save the dictionary as a pickle file
+with open('./data/genders.pkl', 'wb') as f:
+    pickle.dump(genders_dict, f)
 
 #Error handling if 'error' list occurs somewhere
 error = []
