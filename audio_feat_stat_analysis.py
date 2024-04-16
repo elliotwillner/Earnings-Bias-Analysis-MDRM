@@ -1,103 +1,71 @@
 import numpy as np
 import pandas as pd
 import pickle
-import os
-import datetime
-from statistics import mean
+from scipy.stats import ttest_ind, mannwhitneyu
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
-from keras.layers import Dense, Flatten, LSTM, Conv1D, MaxPooling1D, Dropout, Activation , Masking, Bidirectional, GlobalAvgPool1D, GlobalMaxPool1D, Conv1D, TimeDistributed, Input, Concatenate, GRU, dot, multiply, concatenate
-from keras.models import Model
-from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping
-from keras.models import Sequential
-import scipy.stats as stats
 import seaborn as sns
-# from scipy.stats import pearsonr
-# from scipy.stats import spearmanr
-from scipy.stats import ttest_ind
 
-def loadPickleFile(filepath):
-    with open(filepath, 'rb') as f:
-        return pickle.load(f)
+# Load data
+audio_featDict = pickle.load(open('./data/audio_featDict.pkl', 'rb'))
+audio_featDictMark2 = pickle.load(open('./data/audio_featDictMark2.pkl', 'rb'))
+genders = pickle.load(open('./data/genders.pkl', 'rb'))
+df = pd.read_csv('./data/full_stock_data.csv')
 
-def loadData():
-    audio_featDict = loadPickleFile('./data/audio_featDict.pkl')
-    audio_featDictMark2 = loadPickleFile('./data/audio_featDictMark2.pkl')
-    genders = loadPickleFile('./data/genders.pkl')
-    df = pd.read_csv("./data/full_stock_data.csv")
-    return audio_featDict, audio_featDictMark2, genders, df
+# Preprocess data
+def extract_features(file_name):
+    # Code to extract audio features from dictionaries for the given file_name
+    # Return a numpy array containing the feature values
+    features = []
+    try:
+        sentence_features = audio_featDict[file_name]
+        for sent_id, feat in sentence_features.items():
+            prosodic_feat = audio_featDictMark2[file_name][sent_id]
+            features.append(np.concatenate((feat, prosodic_feat)))
+    except KeyError:
+        print(f"Warning: No features found for file {file_name}")
+        return np.zeros((0, 26))  # Return an empty array if file not found
 
-def createLstmMatrix(speaker_list, audio_featDict, audio_featDictMark2, text_file_name):
-    temp = np.zeros((520, 26), dtype=np.float64)
-    for i, sent in enumerate(speaker_list):
-        try:
-            temp[i, :] = audio_featDict[text_file_name][sent] + audio_featDictMark2[text_file_name][sent]
-        except KeyError:
-            continue
-    return temp
+    return np.array(features)
 
-def modifyData(df, audio_featDict, audio_featDictMark2, genders=None):
-    X, y_labels = [], {'male': [], 'female': []}
-    errors = []
+def separate_by_gender(data):
+    male_data = []
+    female_data = []
+    for file_name, features in data.items():
+        if genders[file_name] == 'M':
+            male_data.append(features)
+        else:
+            female_data.append(features)
+    return np.array(male_data), np.array(female_data)
 
-    for index, row in df.iterrows():
-        try:
-            speaker_list = sorted(list(audio_featDict[row['text_file_name']].keys()),
-                                  key=lambda x: (int(x.split('_')[1]), int(x.split('_')[2])))
-            lstm_matrix = createLstmMatrix(speaker_list, audio_featDict, audio_featDictMark2, row['text_file_name'])
-            X.append(lstm_matrix)
+# Create a dictionary mapping file names to feature arrays
+data = {row['text_file_name']: extract_features(row['text_file_name']) for index, row in df.iterrows()}
 
-            if genders:
-                gender_key = 'male' if genders[row['text_file_name']] == 'M' else 'female'
-                for days in [3, 7, 15, 30]:
-                    y_labels[gender_key].append(float(row[f'future_{days}']))
-        except Exception as e:
-            errors.append(row['text_file_name'])
-            X.append(np.zeros((520, 26), dtype=np.float64))
+male_data, female_data = separate_by_gender(data)
 
-    X = np.array(X)
-    for key in y_labels.keys():
-        y_labels[key] = np.array(y_labels[key])
-
-    return X, y_labels, errors
-
-def compareFeat(X_male, X_female, feature_names):
-    count = 0
-    for i in range(X_male.shape[-1]):
-        male_feat = X_male[:, :, i].flatten()
-        female_feat = X_female[:, :, i].flatten()
-        t, p = ttest_ind(male_feat, female_feat)
-        if p < 0.05:
-            count += 1
-        print(f"{feature_names[i]} : p={p}, t={t}")
-    print(f"Count of statistically significant different features: {count}")
-
-#Main script
-audio_featDict, audio_featDictMark2, genders, df = loadData()
-X, y_labels, errors = modifyData(df, audio_featDict, audio_featDictMark2, genders=genders)
-
-X_male = X[tuple(y_labels['male'])]
-X_female = X[tuple(y_labels['female'])]
-
-#NaN Value Handling
-inds_X = np.where(np.isnan(X))
-for i in range(len(inds_X[0])):
-    row_mean_X = np.nanmean(X[inds_X[0][i], :, inds_X[2][i]], axis=0)
-    X[inds_X[0][i], inds_X[1][i], inds_X[2][i]] = row_mean_X
-
-#Handle NaN values in X_male
-inds_X_male = np.where(np.isnan(X_male))
-for i in range(len(inds_X_male[0])):
-    row_mean_X_male = np.nanmean(X_male[inds_X_male[0][i], :, inds_X_male[2][i]], axis=0)
-    X_male[inds_X_male[0][i], inds_X_male[1][i], inds_X_male[2][i]] = row_mean_X_male
-
-#Handle NaN values in X_female
-inds_X_female = np.where(np.isnan(X_female))
-for i in range(len(inds_X_female[0])):
-    row_mean_X_female = np.nanmean(X_female[inds_X_female[0][i], :, inds_X_female[2][i]], axis=0)
-    X_female[inds_X_female[0][i], inds_X_female[1][i], inds_X_female[2][i]] = row_mean_X_female
-
-
+# Perform statistical analysis
 feature_names = ['Mean F0', 'Stdev F0', 'Hnr', 'Local Jitter', 'Local Absolute Jitter', 'Rap Jitter', 'Ppq5 Jitter', 'Ddp Jitter', 'Local Shimmer', 'Localdb Shimmer', 'Apq3 Shimmer', 'Aqpq5 Shimmer', 'Apq11 Shimmer', 'Dda Shimmer', 'N Pulses', 'N Periods', 'Degree Of Voice Breaks', 'Mean Intensity', 'Sd Energy', 'Max Intensity', 'Min Intensity', 'Max Pitch', 'Min Pitch', 'Voiced Frames', 'Voiced To Total Ratio', 'Voiced To Unvoiced Ratio']
+
+for feature_idx, feature_name in enumerate(feature_names):
+    male_feature = male_data[:, feature_idx]
+    female_feature = female_data[:, feature_idx]
+
+    # Calculate descriptive statistics
+    male_mean = np.mean(male_feature)
+    male_std = np.std(male_feature)
+    female_mean = np.mean(female_feature)
+    female_std = np.std(female_feature)
+
+    # Perform statistical test (e.g., t-test or Mann-Whitney U test)
+    t_stat, p_value = ttest_ind(male_feature, female_feature)
+    # u_stat, p_value = mannwhitneyu(male_feature, female_feature)
+
+    # Print or store the results
+    print(f"{feature_name}: Male (mean={male_mean}, std={male_std}), Female (mean={female_mean}, std={female_std}), p-value={p_value}")
+
+    # Visualize the distributions
+    plt.figure()
+    sns.histplot(male_feature, kde=True, label='Male', color='b')
+    sns.histplot(female_feature, kde=True, label='Female', color='r')
+    plt.title(f"{feature_name} Distribution")
+    plt.legend()
+    plt.show()
