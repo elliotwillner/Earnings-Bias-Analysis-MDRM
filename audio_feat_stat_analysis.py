@@ -31,10 +31,11 @@ def separate_by_gender(data):
     male_data = []
     female_data = []
     for file_name, features in data.items():
-        if genders[file_name] == 'M':
-            male_data.append(features)
-        else:
-            female_data.append(features)
+        if file_name in genders:
+            if genders[file_name] == 'M':
+                male_data.append(features)
+            else:
+                female_data.append(features)
     return np.array(male_data), np.array(female_data)
 
 # Create a dictionary mapping file names to feature arrays
